@@ -12,12 +12,13 @@ import (
 )
 
 // NewContainer is a contructor that creates a container for a pod template i.e. corev1.PodTemplateSpec
-func NewContainer(containerName, image string, imagePullPolicy corev1.PullPolicy, volumeMounts []corev1.VolumeMount) corev1.Container {
+func NewContainer(containerName, image string, imagePullPolicy corev1.PullPolicy, volumeMounts []corev1.VolumeMount, envFrom []corev1.EnvFromSource) corev1.Container {
 	return corev1.Container{
 		Name:            containerName,
 		Image:           image,
 		ImagePullPolicy: imagePullPolicy,
 		VolumeMounts:    volumeMounts,
+		EnvFrom:         envFrom,
 	}
 }
 
@@ -52,14 +53,13 @@ func NewImagePullSecret(client *rancher.Client, clusterName, namespace string) (
 	}, nil
 }
 
-// NewTemplate is a constructor that creates the pod template for all types of workloads e.g. cronjobs, daemonsets, deployments, and batch jobs
-func NewTemplate(containers []corev1.Container, imagePullSecret *corev1.LocalObjectReference) corev1.PodTemplateSpec {
+// NewPodTemplate is a constructor that creates the pod template for all types of workloads e.g. cronjobs, daemonsets, deployments, and batch jobs
+func NewPodTemplate(containers []corev1.Container, volumes []corev1.Volume, imagePullSecrets []corev1.LocalObjectReference) corev1.PodTemplateSpec {
 	return corev1.PodTemplateSpec{
 		Spec: corev1.PodSpec{
-			Containers: containers,
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				*imagePullSecret,
-			},
+			Containers:       containers,
+			Volumes:          volumes,
+			ImagePullSecrets: imagePullSecrets,
 		},
 	}
 }
