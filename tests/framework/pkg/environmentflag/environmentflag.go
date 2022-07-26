@@ -1,6 +1,7 @@
 package environmentflag
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/rancher/rancher/tests/framework/pkg/config"
@@ -27,15 +28,22 @@ func NewEnvironmentFlags() EnvironmentFlags {
 // If the flags field does not exist, it returns an empty map.
 func LoadEnvironmentFlags(configurationFileKey string, e EnvironmentFlags) {
 	flagsConfig := new(Config)
+	fmt.Printf("Loading environment flags from %s\n", configurationFileKey)
+	fmt.Printf("This is the configuration before loading: %+v\n", flagsConfig)
 	config.LoadConfig(configurationFileKey, flagsConfig)
+	fmt.Printf("This is the configuration after loading: %+v\n", flagsConfig)
 
 	flags := strings.Split(strings.ToLower(flagsConfig.DesiredFlags), "|")
+
+	fmt.Printf("This is the configuration after parsing the slice: %+v\n", flags)
 
 	for i := EnvironmentFlag(0); i < environmentFlagLastItem; i++ {
 		if slices.Contains(flags, strings.ToLower(i.String())) {
 			e[EnvironmentFlag(i)] = true
 		}
 	}
+
+	fmt.Printf("This is the flags map after looping as return point: %+v\n", e)
 }
 
 // GetValue returns the value of the flag.
