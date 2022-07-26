@@ -31,7 +31,7 @@ func (f *FlagTestSuite) SetupSuite() {
 	f.client = client
 }
 
-func (f *FlagTestSuite) TestIstioChart() {
+func (f *FlagTestSuite) TestFlags() {
 	subSession := f.session.NewSession()
 	defer subSession.Cleanup()
 
