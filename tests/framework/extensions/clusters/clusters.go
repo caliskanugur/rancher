@@ -145,6 +145,7 @@ func NewRKE1ClusterConfig(clusterName, cni, kubernetesVersion string, client *ra
 				MTU:     0,
 				Options: map[string]string{},
 			},
+			Version: kubernetesVersion,
 		},
 	}
 
