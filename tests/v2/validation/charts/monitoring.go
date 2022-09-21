@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/pkg/errors"
+
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/rancher/pkg/controllers/managementuserlegacy/alert/config"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
@@ -88,19 +90,6 @@ var (
 	ruleLabel = map[string]string{"team": "qa"}
 )
 
-// getChartCaseEndpointUntilHealthyResponse is a private helper function
-// that awaits the success response from the endpoint until the timeout.
-func getChartCaseEndpointUntilHealthyResponse(client *rancher.Client, host, path string) bool {
-	timeout := 30 * time.Second
-	for start := time.Now(); time.Since(start) < timeout; {
-		result, _ := charts.GetChartCaseEndpoint(client, host, path, false)
-		if result.Ok {
-			return true
-		}
-	}
-	return false
-}
-
 // waitUnknownPrometheusTargets is a private helper function
 // that awaits the unknown Prometheus targets to be resolved until the timeout by using Prometheus API.
 func waitUnknownPrometheusTargets(client *rancher.Client) error {
@@ -116,11 +105,11 @@ func waitUnknownPrometheusTargets(client *rancher.Client) error {
 			return statusInit, err
 		}
 		if mapResponse["status"] != "success" {
-			return statusInit, fmt.Errorf("Fail to get targets from prometheus")
+			return statusInit, errors.New("failed to get targets from prometheus")
 		}
 		activeTargets := mapResponse["data"].(map[string]interface{})["activeTargets"].([]interface{})
 		if len(activeTargets) < 1 {
-			return false, fmt.Errorf("Failed to find any active targets")
+			return false, errors.New("failed to find any active targets")
 		}
 		for _, target := range activeTargets {
 			targetMap := target.(map[string]interface{})
@@ -168,12 +157,12 @@ func checkPrometheusTargets(client *rancher.Client) (bool, error) {
 	}
 
 	if mapResponse["status"] != "success" {
-		return statusInit, fmt.Errorf("Fail to get targets from prometheus")
+		return statusInit, errors.New("failed to get targets from prometheus")
 	}
 
 	activeTargets := mapResponse["data"].(map[string]interface{})["activeTargets"].([]interface{})
 	if len(activeTargets) < 1 {
-		return false, fmt.Errorf("Failed to find any active targets")
+		return false, errors.New("failed to find any active targets")
 	}
 
 	for _, target := range activeTargets {
@@ -185,7 +174,7 @@ func checkPrometheusTargets(client *rancher.Client) (bool, error) {
 	statusInit = len(downTargets) == 0
 
 	if !statusInit {
-		return statusInit, fmt.Errorf("All active target(s) are not healthy: %v", downTargets)
+		return statusInit, errors.Wrapf(err, "All active target(s) are not healthy: %v", downTargets)
 	}
 
 	return statusInit, nil
@@ -198,7 +187,7 @@ func editAlertReceiver(alertConfigByte []byte, origin string, originURL *url.URL
 
 	err := yaml.Unmarshal(alertConfigByte, &alertConfig)
 	if err != nil {
-		return "", fmt.Errorf("Failed to unmarshal alert config: %v", err)
+		return "", errors.Wrapf(err, "failed to unmarshal alert config")
 	}
 
 	alertConfig.Global = &config.GlobalConfig{
@@ -232,7 +221,7 @@ func editAlertRoute(alertConfigByte []byte, origin string, originURL *url.URL) (
 
 	err := yaml.Unmarshal(alertConfigByte, &alertConfig)
 	if err != nil {
-		return "", fmt.Errorf("Failed to unmarshal alert config: %v", err)
+		return "", errors.Wrapf(err, "failed to unmarshal alert config: %v")
 	}
 
 	alertConfig.Global = &config.GlobalConfig{
