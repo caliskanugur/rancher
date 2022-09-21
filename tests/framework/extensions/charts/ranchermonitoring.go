@@ -39,6 +39,7 @@ func InstallRancherMonitoringChart(client *rancher.Client, installOptions *Insta
 	monitoringChartInstallActionPayload := &payloadOpts{
 		InstallOptions:  *installOptions,
 		Name:            RancherMonitoringName,
+		Namespace:       RancherMonitoringNamespace,
 		Host:            serverSetting.Value,
 		DefaultRegistry: registrySetting.Value,
 	}
