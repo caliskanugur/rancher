@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/namespaces"
 	"github.com/rancher/rancher/tests/framework/pkg/wait"
 	"github.com/rancher/rancher/tests/integration/pkg/defaults"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 )
@@ -26,12 +25,22 @@ const (
 
 // InstallRancherMonitoringChart is a helper function that installs the rancher-monitoring chart.
 func InstallRancherMonitoringChart(client *rancher.Client, installOptions *InstallOptions, rancherMonitoringOpts *RancherMonitoringOpts) error {
-	hostWithProtocol := fmt.Sprintf("https://%s", client.RancherConfig.Host)
+	serverSetting, err := client.Management.Setting.ByID(serverURLSettingID)
+	if err != nil {
+		return err
+	}
+
+	registrySetting, err := client.Management.Setting.ByID(defaultRegistrySettingID)
+	if err != nil {
+		return err
+	}
+
 	monitoringChartInstallActionPayload := &payloadOpts{
-		InstallOptions: *installOptions,
-		Name:           RancherMonitoringName,
-		Host:           hostWithProtocol,
-		Namespace:      RancherMonitoringNamespace,
+		InstallOptions:  *installOptions,
+		Name:            RancherMonitoringName,
+		Namespace:       RancherMonitoringNamespace,
+		Host:            serverSetting.Value,
+		DefaultRegistry: registrySetting.Value,
 	}
 
 	chartInstallAction := newMonitoringChartInstallAction(monitoringChartInstallActionPayload, rancherMonitoringOpts)
@@ -78,9 +87,6 @@ func InstallRancherMonitoringChart(client *rancher.Client, installOptions *Insta
 		namespaceResource := dynamicClient.Resource(namespaces.NamespaceGroupVersionResource).Namespace("")
 
 		err = namespaceResource.Delete(context.TODO(), RancherMonitoringNamespace, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			return nil
-		}
 		if err != nil {
 			return err
 		}
@@ -168,8 +174,8 @@ func newMonitoringChartInstallAction(p *payloadOpts, rancherMonitoringOpts *Ranc
 		},
 	}
 
-	chartInstall := newChartInstall(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, monitoringValues)
-	chartInstallCRD := newChartInstall(p.Name+"-crd", p.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, nil)
+	chartInstall := newChartInstall(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, monitoringValues)
+	chartInstallCRD := newChartInstall(p.Name+"-crd", p.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, nil)
 	chartInstalls := []types.ChartInstall{*chartInstallCRD, *chartInstall}
 
 	chartInstallAction := newChartInstallAction(p.Namespace, p.ProjectID, chartInstalls)
@@ -179,12 +185,22 @@ func newMonitoringChartInstallAction(p *payloadOpts, rancherMonitoringOpts *Ranc
 
 // UpgradeMonitoringChart is a helper function that upgrades the rancher-monitoring chart.
 func UpgradeRancherMonitoringChart(client *rancher.Client, installOptions *InstallOptions, rancherMonitoringOpts *RancherMonitoringOpts) error {
-	hostWithProtocol := fmt.Sprintf("https://%s", client.RancherConfig.Host)
+	serverSetting, err := client.Management.Setting.ByID(serverURLSettingID)
+	if err != nil {
+		return err
+	}
+
+	registrySetting, err := client.Management.Setting.ByID(defaultRegistrySettingID)
+	if err != nil {
+		return err
+	}
+
 	monitoringChartUpgradeActionPayload := &payloadOpts{
-		InstallOptions: *installOptions,
-		Name:           RancherMonitoringName,
-		Host:           hostWithProtocol,
-		Namespace:      RancherMonitoringNamespace,
+		InstallOptions:  *installOptions,
+		Name:            RancherMonitoringName,
+		Namespace:       RancherMonitoringNamespace,
+		Host:            serverSetting.Value,
+		DefaultRegistry: registrySetting.Value,
 	}
 
 	chartUpgradeAction := newMonitoringChartUpgradeAction(monitoringChartUpgradeActionPayload, rancherMonitoringOpts)
@@ -281,8 +297,8 @@ func newMonitoringChartUpgradeAction(p *payloadOpts, rancherMonitoringOpts *Ranc
 			"enabled": rancherMonitoringOpts.RKEScheduler,
 		},
 	}
-	chartUpgrade := newChartUpgrade(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, monitoringValues)
-	chartUpgradeCRD := newChartUpgrade(p.Name+"-crd", p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, monitoringValues)
+	chartUpgrade := newChartUpgrade(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, monitoringValues)
+	chartUpgradeCRD := newChartUpgrade(p.Name+"-crd", p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, monitoringValues)
 	chartUpgrades := []types.ChartUpgrade{*chartUpgradeCRD, *chartUpgrade}
 
 	chartUpgradeAction := newChartUpgradeAction(p.Namespace, chartUpgrades)
