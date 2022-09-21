@@ -221,7 +221,7 @@ func editAlertRoute(alertConfigByte []byte, origin string, originURL *url.URL) (
 
 	err := yaml.Unmarshal(alertConfigByte, &alertConfig)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to unmarshal alert config: %v")
+		return "", errors.Wrapf(err, "failed to unmarshal alert config")
 	}
 
 	alertConfig.Global = &config.GlobalConfig{
