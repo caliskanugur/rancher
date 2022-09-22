@@ -60,7 +60,6 @@ func (g *GateKeeperTestSuite) SetupSuite() {
 	g.project = createdProject
 
 	g.gatekeeperChartInstallOptions = &charts.InstallOptions{
-
 		ClusterName: clusterName,
 		ClusterID:   clusterID,
 		Version:     latestGatekeeperVersion,
@@ -88,7 +87,7 @@ func (g *GateKeeperTestSuite) TestGatekeeperChart() {
 	err = charts.WatchAndWaitDaemonSets(client, g.project.ClusterID, charts.RancherGatekeeperNamespace, metav1.ListOptions{})
 	require.NoError(g.T(), err)
 
-	g.T().Log("applying constraint")
+	g.T().Log("Applying constraint")
 	readYamlFile, err := os.ReadFile("./resources/opa-k8srequiredlabels.yaml")
 	require.NoError(g.T(), err)
 	yamlInput := &management.ImportClusterYamlInput{
@@ -118,18 +117,17 @@ func (g *GateKeeperTestSuite) TestGatekeeperChart() {
 	violations, err := parseConstraintList(constraintList)
 	require.NoError(g.T(), err)
 
-	g.T().Log("getting list of all namespaces")
+	g.T().Log("Getting list of all namespaces")
 	namespacesList, err := getUnstructuredList(client, g.project, Namespaces)
 	require.NoError(g.T(), err)
 
-	g.T().Log("getting list of namespaces with violations...")
+	g.T().Log("Getting list of namespaces with violations...")
 	totalViolations := violations.Items[0].Status.TotalViolations
 	// get the number of namespaces
 	totalNamespaces := len(namespacesList.Items)
 
 	g.T().Log("Asserting that all namespaces violate the constraint")
 	assert.EqualValues(g.T(), totalNamespaces, totalViolations)
-
 }
 
 func (g *GateKeeperTestSuite) TestUpGradeGatekeeperChart() {
@@ -140,7 +138,6 @@ func (g *GateKeeperTestSuite) TestUpGradeGatekeeperChart() {
 	require.NoError(g.T(), err)
 
 	// Change gatekeeper install option version to previous version of the latest version
-
 	versionsList, err := client.Catalog.GetListChartVersions(charts.RancherGatekeeperName)
 	require.NoError(g.T(), err)
 
@@ -163,7 +160,6 @@ func (g *GateKeeperTestSuite) TestUpGradeGatekeeperChart() {
 	}
 
 	if !initialGatekeeperChart.IsAlreadyInstalled {
-
 		g.T().Log("Installing gatekeeper chart with the version before the latest version")
 		err = charts.InstallRancherGatekeeperChart(client, g.gatekeeperChartInstallOptions)
 		require.NoError(g.T(), err)
@@ -202,7 +198,7 @@ func (g *GateKeeperTestSuite) TestUpGradeGatekeeperChart() {
 	gatekeeperChartPostUpgrade, err := charts.GetChartStatus(client, g.project.ClusterID, charts.RancherGatekeeperNamespace, charts.RancherGatekeeperName)
 	require.NoError(g.T(), err)
 
-	// Compare rancher-gatekeeper versions
+	g.T().Log("Comparing installed and desired gatekeeper versions")
 	chartVersionPostUpgrade := gatekeeperChartPostUpgrade.ChartDetails.Spec.Chart.Metadata.Version
 	require.Equal(g.T(), g.gatekeeperChartInstallOptions.Version, chartVersionPostUpgrade)
 }

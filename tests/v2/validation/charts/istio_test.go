@@ -145,7 +145,7 @@ func (i *IstioTestSuite) TestIstioChart() {
 	require.Equal(i.T(), exampleAppNamespaceName, createdNamespace.Name)
 
 	i.T().Log("Importing example app objects to the namespace")
-	readYamlFile, err := os.ReadFile("./demobookapp.yaml")
+	readYamlFile, err := os.ReadFile("./resources/istio-demobookapp.yaml")
 	require.NoError(i.T(), err)
 	yamlInput := &management.ImportClusterYamlInput{
 		DefaultNamespace: exampleAppNamespaceName,

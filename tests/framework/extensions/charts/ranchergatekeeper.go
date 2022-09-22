@@ -164,10 +164,9 @@ func InstallRancherGatekeeperChart(client *rancher.Client, installOptions *Insta
 
 // newGatekeeperChartInstallAction is a helper function that returns an array of newChartInstallActions for installing the gatekeeper and gatekeepr-crd charts
 func newGatekeeperChartInstallAction(p *payloadOpts) *types.ChartInstallAction {
-	gatekeeperValues := map[string]interface{}{}
+	chartInstall := newChartInstall(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, nil)
+	chartInstallCRD := newChartInstall(p.Name+"-crd", p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, nil)
 
-	chartInstall := newChartInstall(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, gatekeeperValues)
-	chartInstallCRD := newChartInstall(p.Name+"-crd", p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, gatekeeperValues)
 	chartInstalls := []types.ChartInstall{*chartInstallCRD, *chartInstall}
 
 	chartInstallAction := newChartInstallAction(p.Namespace, p.ProjectID, chartInstalls)
@@ -265,10 +264,8 @@ func UpgradeRancherGatekeeperChart(client *rancher.Client, installOptions *Insta
 
 // newGatekeeperChartUpgradeAction is a private helper function that returns chart upgrade action.
 func newGatekeeperChartUpgradeAction(p *payloadOpts) *types.ChartUpgradeAction {
-	gatekeeperValues := map[string]interface{}{}
-
-	chartUpgrade := newChartUpgrade(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, gatekeeperValues)
-	chartUpgradeCRD := newChartUpgrade(p.Name+"-crd", p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, gatekeeperValues)
+	chartUpgrade := newChartUpgrade(p.Name, p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, nil)
+	chartUpgradeCRD := newChartUpgrade(p.Name+"-crd", p.InstallOptions.Version, p.InstallOptions.ClusterID, p.InstallOptions.ClusterName, p.Host, p.DefaultRegistry, nil)
 	chartUpgrades := []types.ChartUpgrade{*chartUpgradeCRD, *chartUpgrade}
 
 	chartUpgradeAction := newChartUpgradeAction(p.Namespace, chartUpgrades)
