@@ -7,6 +7,8 @@ import (
 	"github.com/rancher/rancher/pkg/api/steve/catalog/types"
 	catalogv1 "github.com/rancher/rancher/pkg/apis/catalog.cattle.io/v1"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
+	kubenamespaces "github.com/rancher/rancher/tests/framework/extensions/kubeapi/namespaces"
+	"github.com/rancher/rancher/tests/framework/extensions/namespaces"
 	"github.com/rancher/rancher/tests/framework/pkg/wait"
 	"github.com/rancher/rancher/tests/integration/pkg/defaults"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +20,7 @@ const (
 	RancherGatekeeperNamespace = "cattle-gatekeeper-system"
 	// Name of the rancher gatekeeper chart
 	RancherGatekeeperName = "rancher-gatekeeper"
-	// Name of rancher gatekeepr crd chart
+	// Name of rancher gatekeeper crd chart
 	RancherGatekeeperCRDName = "rancher-gatekeeper-crd"
 )
 
@@ -87,7 +89,7 @@ func InstallRancherGatekeeperChart(client *rancher.Client, installOptions *Insta
 			return err
 		}
 
-		return wait.WatchWait(watchAppInterface, func(event watch.Event) (ready bool, err error) {
+		err = wait.WatchWait(watchAppInterface, func(event watch.Event) (ready bool, err error) {
 			chart := event.Object.(*catalogv1.App)
 			if event.Type == watch.Error {
 				return false, fmt.Errorf("there was an error uninstalling rancher gatekeeper chart")
@@ -98,6 +100,9 @@ func InstallRancherGatekeeperChart(client *rancher.Client, installOptions *Insta
 			}
 			return false, nil
 		})
+		if err != nil {
+			return err
+		}
 
 		// dynamicClient, err := client.GetDownStreamClusterClient(installOptions.ClusterID)
 		// if err != nil {
@@ -147,6 +152,48 @@ func InstallRancherGatekeeperChart(client *rancher.Client, installOptions *Insta
 		// 	return false, nil
 		// })
 
+		steveclient, err := client.Steve.ProxyDownstream(installOptions.ClusterID)
+		if err != nil {
+			return err
+		}
+
+		namespaceClient := steveclient.SteveType(namespaces.NamespaceSteveType)
+
+		namespace, err := namespaceClient.ByID(RancherGatekeeperNamespace)
+		if err != nil {
+			return err
+		}
+
+		err = namespaceClient.Delete(namespace)
+		if err != nil {
+			return err
+		}
+
+		adminClient, err := rancher.NewClient(client.RancherConfig.AdminToken, client.Session)
+		if err != nil {
+			return err
+		}
+		adminDynamicClient, err := adminClient.GetDownStreamClusterClient(installOptions.ClusterID)
+		if err != nil {
+			return err
+		}
+		adminNamespaceResource := adminDynamicClient.Resource(kubenamespaces.NamespaceGroupVersionResource).Namespace("")
+
+		watchNamespaceInterface, err := adminNamespaceResource.Watch(context.TODO(), metav1.ListOptions{
+			FieldSelector:  "metadata.name=" + RancherGatekeeperNamespace,
+			TimeoutSeconds: &defaults.WatchTimeoutSeconds,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		return wait.WatchWait(watchNamespaceInterface, func(event watch.Event) (ready bool, err error) {
+			if event.Type == watch.Deleted {
+				return true, nil
+			}
+			return false, nil
+		})
 	})
 
 	err = catalogClient.InstallChart(chartInstallAction)

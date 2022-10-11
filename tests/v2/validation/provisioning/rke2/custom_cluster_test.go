@@ -195,7 +195,7 @@ func (c *CustomClusterProvisioningTestSuite) ProvisioningRKE2CustomClusterDynami
 		client *rancher.Client
 	}{
 		{"Admin User", c.client},
-		{"Standard User", c.standardUserClient},
+		// {"Standard User", c.standardUserClient},
 	}
 
 	var name string

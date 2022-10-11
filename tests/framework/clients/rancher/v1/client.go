@@ -83,7 +83,7 @@ func NewClient(opts *clientbase.ClientOpts) (*Client, error) {
 // SteveType is a function that sets the resource type for the SteveClient
 // e.g. accessing the Steve namespace resource
 //
-//	 nameSpaceClient := client.V1.SteveType("namespace")
+//	nameSpaceClient := client.V1.SteveType("namespace")
 func (c *Client) SteveType(steveType string) *SteveClient {
 	return &SteveClient{
 		apiClient: c,
@@ -220,11 +220,11 @@ func (c *SteveClient) Delete(container *SteveAPIObject) error {
 // SteveAPIObject to its native kubernetes type
 // e.g. converting a SteveAPIObject spec to a NamespaceSpec
 //
-//	 namespaceSpec := &coreV1.NamespaceSpec{}
-//   spec, err := namespaces.ConvertSpecOrStatusType(createdNamespace.Spec, namespaceSpec)
-//   require.NoError(p.T(), err)
+//		 namespaceSpec := &coreV1.NamespaceSpec{}
+//	  spec, err := namespaces.ConvertSpecOrStatusType(createdNamespace.Spec, namespaceSpec)
+//	  require.NoError(p.T(), err)
 //
-//   spec.(*coreV1.NamespaceSpec).Finalizers
+//	  spec.(*coreV1.NamespaceSpec).Finalizers
 func ConvertToK8sType(steveResp any, kubernetesObject any) error {
 	jsonbody, err := json.Marshal(steveResp)
 	if err != nil {
