@@ -8,8 +8,7 @@ import (
 	"github.com/rancher/rancher/pkg/api/scheme"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
-	v1 "github.com/rancher/rancher/tests/framework/clients/rancher/v1"
-	"github.com/rancher/rancher/tests/framework/extensions/kubeapi/namespaces"
+	"github.com/rancher/rancher/tests/framework/extensions/unstructured"
 	"github.com/rancher/rancher/tests/framework/pkg/wait"
 	"github.com/rancher/rancher/tests/integration/pkg/defaults"
 	coreV1 "k8s.io/api/core/v1"
@@ -20,13 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-const (
-	NamespaceSteveType = "namespace"
-)
-
 // CreateNamespace is a helper function that uses the dynamic client to create a namespace on a project.
 // It registers a delete function with a wait.WatchWait to ensure the namspace is deleted cleanly.
-func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultResourceLimit string, labels, annotations map[string]string, project *management.Project) (*v1.SteveAPIObject, error) {
+func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultResourceLimit string, labels, annotations map[string]string, project *management.Project) (*coreV1.Namespace, error) {
 	// Namespace object for a project name space
 	annotations["field.cattle.io/containerDefaultResourceLimit"] = containerDefaultResourceLimit
 	annotations["field.cattle.io/projectId"] = project.ID
@@ -38,29 +33,10 @@ func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultReso
 		},
 	}
 
-	steveClient, err := client.Steve.ProxyDownstream(project.ClusterID)
+	dynamicClient, err := client.GetDownStreamClusterClient(project.ClusterID)
 	if err != nil {
 		return nil, err
 	}
-
-	nameSpaceClient := steveClient.SteveType(NamespaceSteveType)
-
-	resp, err := nameSpaceClient.Create(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	// client, err = client.ReLogin()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	steveClient, err = client.Steve.ProxyDownstream(project.ClusterID)
-	if err != nil {
-		return nil, err
-	}
-
-	nameSpaceClient = steveClient.SteveType(NamespaceSteveType)
 
 	adminClient, err := rancher.NewClient(client.RancherConfig.AdminToken, client.Session)
 	if err != nil {
@@ -68,6 +44,13 @@ func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultReso
 	}
 
 	adminDynamicClient, err := adminClient.GetDownStreamClusterClient(project.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	namespaceResource := dynamicClient.Resource(NamespaceGroupVersionResource).Namespace("")
+
+	unstructuredResp, err := namespaceResource.Create(context.TODO(), unstructured.MustToUnstructured(namespace), metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +90,7 @@ func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultReso
 	}
 
 	client.Session.RegisterCleanupFunc(func() error {
-		err := nameSpaceClient.Delete(resp)
+		err := namespaceResource.Delete(context.TODO(), unstructuredResp.GetName(), metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -115,9 +98,9 @@ func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultReso
 			return err
 		}
 
-		adminNamespaceResource := adminDynamicClient.Resource(namespaces.NamespaceGroupVersionResource).Namespace("")
+		adminNamespaceResource := adminDynamicClient.Resource(NamespaceGroupVersionResource).Namespace("")
 		watchInterface, err := adminNamespaceResource.Watch(context.TODO(), metav1.ListOptions{
-			FieldSelector:  "metadata.name=" + resp.Name,
+			FieldSelector:  "metadata.name=" + unstructuredResp.GetName(),
 			TimeoutSeconds: &defaults.WatchTimeoutSeconds,
 		})
 
@@ -133,5 +116,10 @@ func CreateNamespace(client *rancher.Client, namespaceName, containerDefaultReso
 		})
 	})
 
-	return resp, nil
+	newNamespace := &coreV1.Namespace{}
+	err = scheme.Scheme.Convert(unstructuredResp, newNamespace, unstructuredResp.GroupVersionKind())
+	if err != nil {
+		return nil, err
+	}
+	return newNamespace, nil
 }

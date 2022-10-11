@@ -199,20 +199,44 @@ func (a *APIOperations) DoCreate(schemaType string, createObj interface{}, respO
 		collectionURL = re.ReplaceAllString(schema.Links[SELF], schema.PluralName)
 	}
 
+	// ID      string            `json:"id,omitempty"`
+	// Type    string            `json:"type,omitempty"`
+	// Links   map[string]string `json:"links"`
+	// Actions map[string]string `json:"actions"`
+
 	err := a.DoModify("POST", collectionURL, createObj, respObject)
+	if err != nil {
+		return err
+	}
 	v := reflect.ValueOf(respObject)
-	resource := reflect.Indirect(v).FieldByName("Resource")
+
+	var resource types.Resource
+	if v.Type().String() == "*map[string]interface {}" {
+		resourcePointer := &types.Resource{}
+		jsonResp := *(respObject.(*map[string]any))
+		if jsonResp["id"] != nil {
+			resourcePointer.ID = jsonResp["id"].(string)
+			resourcePointer.Type = jsonResp["type"].(string)
+			resourcePointer.Links = convertMap(jsonResp["links"].(map[string]any))
+			if jsonResp["actions"] != nil {
+				resourcePointer.Actions = convertMap(jsonResp["actions"].(map[string]any))
+			}
+		}
+
+	} else {
+		resource = reflect.Indirect(v).FieldByName("Resource").Interface().(types.Resource)
+	}
 
 	a.Session.RegisterCleanupFunc(func() error {
-		obj := resource.Interface().(types.Resource)
-		err := a.DoResourceDelete(schemaType, &obj)
+		// obj := resource.Interface().(types.Resource)
+		err := a.DoResourceDelete(schemaType, &resource)
 		if err != nil && strings.Contains(err.Error(), "404 Not Found") {
 			return nil
 		}
 		return err
 	})
 
-	return err
+	return nil
 }
 
 func (a *APIOperations) DoReplace(schemaType string, existing *types.Resource, updates interface{}, respObject interface{}) error {
@@ -392,4 +416,13 @@ func (a *APIOperations) doAction(
 		return json.Unmarshal(byteContent, respObject)
 	}
 	return nil
+}
+
+func convertMap(anyMap map[string]any) map[string]string {
+	stringMap := make(map[string]string)
+	for key, value := range anyMap {
+		stringMap[key] = value.(string)
+	}
+
+	return stringMap
 }

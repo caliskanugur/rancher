@@ -7,8 +7,6 @@ import (
 	"github.com/rancher/rancher/pkg/api/steve/catalog/types"
 	catalogv1 "github.com/rancher/rancher/pkg/apis/catalog.cattle.io/v1"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
-	crds "github.com/rancher/rancher/tests/framework/extensions/customresourcedefinitions"
-	"github.com/rancher/rancher/tests/framework/extensions/namespaces"
 	"github.com/rancher/rancher/tests/framework/pkg/wait"
 	"github.com/rancher/rancher/tests/integration/pkg/defaults"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,64 +60,92 @@ func InstallRancherGatekeeperChart(client *rancher.Client, installOptions *Insta
 		}
 
 		err = wait.WatchWait(watchAppInterface, func(event watch.Event) (ready bool, err error) {
+			chart := event.Object.(*catalogv1.App)
 			if event.Type == watch.Error {
 				return false, fmt.Errorf("there was an error uninstalling rancher gatekeeper chart")
 			} else if event.Type == watch.Deleted {
 				return true, nil
-			}
-			return false, nil
-		})
-		if err != nil {
-			return err
-		}
-
-		dynamicClient, err := client.GetDownStreamClusterClient(installOptions.ClusterID)
-		if err != nil {
-			return err
-		}
-
-		namespaceResource := dynamicClient.Resource(namespaces.NamespaceGroupVersionResource).Namespace("")
-
-		err = namespaceResource.Delete(context.TODO(), RancherGatekeeperNamespace, metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
-
-		unstructuredCRDList, err := crds.ListCustomResourceDefinitions(client, installOptions.ClusterID, "")
-		if err != nil {
-			return err
-		}
-		CRDSlice := crds.GetCustomResourceDefinitionsListByName(unstructuredCRDList, "gatekeeper")
-		err = crds.BatchDeleteCustomResourceDefinition(client, installOptions.ClusterID, "", CRDSlice)
-		if err != nil {
-			return err
-		}
-
-		adminClient, err := rancher.NewClient(client.RancherConfig.AdminToken, client.Session)
-		if err != nil {
-			return err
-		}
-		adminDynamicClient, err := adminClient.GetDownStreamClusterClient(installOptions.ClusterID)
-		if err != nil {
-			return err
-		}
-		adminNamespaceResource := adminDynamicClient.Resource(namespaces.NamespaceGroupVersionResource).Namespace("")
-
-		watchNamespaceInterface, err := adminNamespaceResource.Watch(context.TODO(), metav1.ListOptions{
-			FieldSelector:  "metadata.name=" + RancherGatekeeperNamespace,
-			TimeoutSeconds: &defaults.WatchTimeoutSeconds,
-		})
-
-		if err != nil {
-			return err
-		}
-
-		return wait.WatchWait(watchNamespaceInterface, func(event watch.Event) (ready bool, err error) {
-			if event.Type == watch.Deleted {
+			} else if chart == nil {
 				return true, nil
 			}
 			return false, nil
 		})
+		if err != nil {
+			return err
+		}
+
+		err = catalogClient.UninstallChart(RancherGatekeeperCRDName, RancherGatekeeperNamespace, defaultChartUninstallAction)
+		if err != nil {
+			return err
+		}
+
+		watchAppInterface, err = catalogClient.Apps(RancherGatekeeperNamespace).Watch(context.TODO(), metav1.ListOptions{
+			FieldSelector:  "metadata.name=" + RancherGatekeeperCRDName,
+			TimeoutSeconds: &defaults.WatchTimeoutSeconds,
+		})
+		if err != nil {
+			return err
+		}
+
+		return wait.WatchWait(watchAppInterface, func(event watch.Event) (ready bool, err error) {
+			chart := event.Object.(*catalogv1.App)
+			if event.Type == watch.Error {
+				return false, fmt.Errorf("there was an error uninstalling rancher gatekeeper chart")
+			} else if event.Type == watch.Deleted {
+				return true, nil
+			} else if chart == nil {
+				return true, nil
+			}
+			return false, nil
+		})
+
+		// dynamicClient, err := client.GetDownStreamClusterClient(installOptions.ClusterID)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// namespaceResource := dynamicClient.Resource(namespaces.NamespaceGroupVersionResource).Namespace("")
+
+		// err = namespaceResource.Delete(context.TODO(), RancherGatekeeperNamespace, metav1.DeleteOptions{})
+		// if err != nil {
+		// 	return err
+		// }
+
+		// unstructuredCRDList, err := crds.ListCustomResourceDefinitions(client, installOptions.ClusterID, "")
+		// if err != nil {
+		// 	return err
+		// }
+		// CRDSlice := crds.GetCustomResourceDefinitionsListByName(unstructuredCRDList, "gatekeeper")
+		// err = crds.BatchDeleteCustomResourceDefinition(client, installOptions.ClusterID, "", CRDSlice)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// adminClient, err := rancher.NewClient(client.RancherConfig.AdminToken, client.Session)
+		// if err != nil {
+		// 	return err
+		// }
+		// adminDynamicClient, err := adminClient.GetDownStreamClusterClient(installOptions.ClusterID)
+		// if err != nil {
+		// 	return err
+		// }
+		// adminNamespaceResource := adminDynamicClient.Resource(namespaces.NamespaceGroupVersionResource).Namespace("")
+
+		// watchNamespaceInterface, err := adminNamespaceResource.Watch(context.TODO(), metav1.ListOptions{
+		// 	FieldSelector:  "metadata.name=" + RancherGatekeeperNamespace,
+		// 	TimeoutSeconds: &defaults.WatchTimeoutSeconds,
+		// })
+
+		// if err != nil {
+		// 	return err
+		// }
+
+		// return wait.WatchWait(watchNamespaceInterface, func(event watch.Event) (ready bool, err error) {
+		// 	if event.Type == watch.Deleted {
+		// 		return true, nil
+		// 	}
+		// 	return false, nil
+		// })
 
 	})
 
