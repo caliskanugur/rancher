@@ -120,10 +120,10 @@ func (c *CustomClusterProvisioningTestSuite) ProvisioningK3SCustomCluster(extern
 				client, err = client.ReLogin()
 				require.NoError(c.T(), err)
 
-				customCluster, err := client.Provisioning.Cluster.ByID(clusterResp.ID)
+				customCluster, err := client.Steve.SteveType(clusters.ProvisioningResouceType).ByID(clusterResp.ID)
 				require.NoError(c.T(), err)
 
-				token, err := tokenregistration.GetRegistrationToken(client, customCluster.Status.ClusterName)
+				token, err := tokenregistration.GetRegistrationToken(client, customCluster.ID)
 				require.NoError(c.T(), err)
 
 				for key, node := range nodes {
@@ -211,10 +211,10 @@ func (c *CustomClusterProvisioningTestSuite) ProvisioningK3SCustomClusterDynamic
 				client, err = client.ReLogin()
 				require.NoError(c.T(), err)
 
-				customCluster, err := client.Provisioning.Cluster.ByID(clusterResp.ID)
+				customCluster, err := client.Steve.SteveType(clusters.ProvisioningResouceType).ByID(clusterResp.ID)
 				require.NoError(c.T(), err)
 
-				token, err := tokenregistration.GetRegistrationToken(client, customCluster.Status.ClusterName)
+				token, err := tokenregistration.GetRegistrationToken(client, customCluster.ID)
 				require.NoError(c.T(), err)
 
 				for key, node := range nodes {
