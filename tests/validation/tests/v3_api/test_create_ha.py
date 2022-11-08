@@ -140,7 +140,7 @@ def test_install_rancher_ha(precheck_certificate_options):
         assert False, "check the logs in console for details"
 
     print_kubeconfig(kubeconfig_path)
-    if RANCHER_HA_HARDENED and RANCHER_LOCAL_CLUSTER_TYPE == "RKE":
+    if (RANCHER_HA_HARDENED and RANCHER_LOCAL_CLUSTER_TYPE == "RKE") and RANCHER_HA_KUBECONFIG == "" and RANCHER_HA_HOSTNAME=="":
         prepare_hardened_cluster(profile, kubeconfig_path)
     if RANCHER_LOCAL_CLUSTER_TYPE == "RKE":
         check_rke_ingress_rollout()
