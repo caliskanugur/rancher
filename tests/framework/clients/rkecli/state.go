@@ -11,8 +11,8 @@ import (
 	v3 "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	v1 "github.com/rancher/rancher/tests/framework/clients/rancher/v1"
 	"github.com/rancher/rancher/tests/framework/extensions/configmaps"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
 	"github.com/rancher/rancher/tests/framework/pkg/file"
-	"github.com/rancher/rancher/tests/framework/pkg/nodes"
 	"github.com/rancher/rke/cluster"
 	rketypes "github.com/rancher/rke/types"
 	"gopkg.in/yaml.v2"
@@ -26,6 +26,9 @@ const dirName = "rke-cattle-test-dir"
 // In that dir, it generates state and cluster files from the state configmap.
 // Returns generated state and cluster files' paths.
 func NewRKEConfigs(client *rancher.Client) (stateFilePath, clusterFilePath string, err error) {
+	rkeConfig := new(Config)
+	config.LoadConfig(ConfigurationFileKey, rkeConfig)
+
 	err = file.NewDir(dirName)
 	if err != nil {
 		return
@@ -36,7 +39,7 @@ func NewRKEConfigs(client *rancher.Client) (stateFilePath, clusterFilePath strin
 		return
 	}
 
-	clusterFilePath, err = NewClusterFile(state, dirName)
+	clusterFilePath, err = NewClusterFile(state, dirName, rkeConfig)
 	if err != nil {
 		return
 	}
@@ -106,7 +109,7 @@ func UpdateKubernetesVersion(kubernetesVersion, clusterFilePath string) error {
 
 // NewClusterFile is a function that generates new cluster.yml file from the full state.
 // Returns the generated file's path.
-func NewClusterFile(state *cluster.FullState, dirName string) (clusterFilePath string, err error) {
+func NewClusterFile(state *cluster.FullState, dirName string, config *Config) (clusterFilePath string, err error) {
 	extension := "yml"
 	rkeConfigFileName := fmt.Sprintf("%v/%v.%v", dirName, filePrefix, extension)
 
@@ -116,9 +119,17 @@ func NewClusterFile(state *cluster.FullState, dirName string) (clusterFilePath s
 	rkeConfig.Version = currentRkeConfig.Version
 	rkeConfig.Nodes = currentRkeConfig.Nodes
 
-	rkeConfig.SSHKeyPath = appendSSHPath(currentRkeConfig.SSHKeyPath)
-	for i := range rkeConfig.Nodes {
-		rkeConfig.Nodes[i].SSHKeyPath = appendSSHPath(rkeConfig.Nodes[i].SSHKeyPath)
+	if config.SSHKey != "" {
+		for i := range rkeConfig.Nodes {
+			rkeConfig.Nodes[i].SSHKey = config.SSHKey
+		}
+	} else if config.SSHPath != "" {
+		rkeConfig.SSHKeyPath = appendSSHPath(currentRkeConfig.SSHKeyPath, config.SSHPath)
+		for i := range rkeConfig.Nodes {
+			rkeConfig.Nodes[i].SSHKeyPath = appendSSHPath(rkeConfig.Nodes[i].SSHKeyPath, config.SSHPath)
+		}
+	} else {
+		return "", errors.Wrap(err, "rke SSHPath or SSHKey not configured")
 	}
 
 	marshaled, err := yaml.Marshal(rkeConfig)
@@ -191,15 +202,13 @@ func GetFullState(client *rancher.Client) (state *cluster.FullState, err error) 
 
 // appendSSHPath reads sshPath input from the cattle config file.
 // If the config input has a different prefix, adds the prefix.
-func appendSSHPath(sshPath string) string {
-	sshPathPrefix := nodes.GetSSHPath().SSHPath
-
-	if strings.HasPrefix(sshPath, sshPathPrefix) {
-		return sshPath
+func appendSSHPath(currentPath, newPath string) string {
+	if strings.HasPrefix(currentPath, newPath) {
+		return currentPath
 	}
 
 	ssh := ".ssh/"
-	sshPath = strings.TrimPrefix(sshPath, ssh)
+	currentPath = strings.TrimPrefix(currentPath, ssh)
 
-	return fmt.Sprintf(sshPathPrefix + "/" + sshPath)
+	return fmt.Sprintf(newPath + "/" + currentPath)
 }
