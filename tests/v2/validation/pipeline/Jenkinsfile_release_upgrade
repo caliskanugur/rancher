@@ -358,7 +358,7 @@ node {
 
               //   build job: 'rancher-v3_ha_upgrade', parameters: upgradeParams
 
-                sh 'sleep 3600'
+              sleep(1800000)
               }
               stage('Run postupgrade checks') {
                 try {
