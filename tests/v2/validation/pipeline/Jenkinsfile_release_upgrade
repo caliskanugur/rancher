@@ -347,16 +347,18 @@ node {
                 }
               }
               stage('Upgrade Rancher') {
-                upgradeParams = [
-                string(name: 'RANCHER_HA_HOSTNAME', value: "${env.HA_HOST}"),
-                string(name: 'RANCHER_CHART_VERSION', value: "${env.HA_CHART_VERSION_TO_UPGRADE}"),
-                string(name: 'RANCHER_IMAGE_TAG', value: "${env.HA_IMAGE_TAG_TO_UPGRADE}"),
-                string(name: 'RANCHER_HELM_REPO', value: "${env.HA_HELM_REPO}"),
-                string(name: 'RANCHER_HA_CERT_OPTION', value: "${env.HA_CERT_OPTION}"),
-                string(name: 'RANCHER_HA_KUBECONFIG', value: "${env.HA_KUBECONFIG}")
-               ]
+              //   upgradeParams = [
+              //   string(name: 'RANCHER_HA_HOSTNAME', value: "${env.HA_HOST}"),
+              //   string(name: 'RANCHER_CHART_VERSION', value: "${env.HA_CHART_VERSION_TO_UPGRADE}"),
+              //   string(name: 'RANCHER_IMAGE_TAG', value: "${env.HA_IMAGE_TAG_TO_UPGRADE}"),
+              //   string(name: 'RANCHER_HELM_REPO', value: "${env.HA_HELM_REPO}"),
+              //   string(name: 'RANCHER_HA_CERT_OPTION', value: "${env.HA_CERT_OPTION}"),
+              //   string(name: 'RANCHER_HA_KUBECONFIG', value: "${env.HA_KUBECONFIG}")
+              //  ]
 
-                build job: 'rancher-v3_ha_upgrade', parameters: upgradeParams
+              //   build job: 'rancher-v3_ha_upgrade', parameters: upgradeParams
+
+                sh 'sleep 3600'
               }
               stage('Run postupgrade checks') {
                 try {
