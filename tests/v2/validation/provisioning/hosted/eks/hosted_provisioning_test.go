@@ -17,7 +17,6 @@ import (
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 	"github.com/rancher/rancher/tests/framework/pkg/session"
 	"github.com/rancher/rancher/tests/framework/pkg/wait"
-	"github.com/rancher/rancher/tests/integration/pkg/defaults"
 	"github.com/rancher/rancher/tests/v2/validation/provisioning"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,9 +100,10 @@ func (h *HostedEKSClusterProvisioningTestSuite) testProvisioningHostedEKSCluster
 		pipeline.UpdateConfigClusterName(clusterName)
 	}
 
+	timeout := int64(60 * 30)
 	opts := metav1.ListOptions{
 		FieldSelector:  "metadata.name=" + clusterResp.ID,
-		TimeoutSeconds: &defaults.WatchTimeoutSeconds,
+		TimeoutSeconds: &timeout,
 	}
 	watchInterface, err := h.client.GetManagementWatchInterface(management.ClusterType, opts)
 	require.NoError(h.T(), err)
