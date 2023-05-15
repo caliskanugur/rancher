@@ -291,6 +291,8 @@ node {
                 }
 
                 parallel jobs
+
+                sleep(time: 90, unit: 'MINUTES')
                 } catch(err){
                   echo "Provisioning tests had failures: " + err
                 }
