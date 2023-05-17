@@ -291,8 +291,6 @@ node {
                 }
 
                 parallel jobs
-
-                sleep(time: 90, unit: 'MINUTES')
                 } catch(err){
                   echo "Provisioning tests had failures: " + err
                 }
@@ -360,7 +358,7 @@ node {
 
               //   build job: 'rancher-v3_ha_upgrade', parameters: upgradeParams
 
-              sleep(time: 60, unit: 'MINUTES')
+              sleep(time: 90, unit: 'MINUTES')
               }
               stage('Run postupgrade checks') {
                 try {
