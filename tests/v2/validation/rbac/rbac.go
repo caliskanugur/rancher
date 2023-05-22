@@ -46,6 +46,7 @@ const (
 type ClusterConfig struct {
 	nodeRoles            []string
 	externalNodeProvider provisioning.ExternalNodeProvider
+	advancedOptions      provisioning.AdvancedOptions
 	kubernetesVersion    string
 	cni                  string
 }
@@ -234,11 +235,17 @@ func getClusterConfig() *ClusterConfig {
 	kubernetesVersion := userConfig.RKE1KubernetesVersions[0]
 	cni := userConfig.CNIs[0]
 	nodeProviders := userConfig.NodeProviders[0]
+	advancedOptions := userConfig.AdvancedOptions
 
 	externalNodeProvider := provisioning.ExternalNodeProviderSetup(nodeProviders)
 
-	clusterConfig := ClusterConfig{nodeRoles: nodeAndRoles, externalNodeProvider: externalNodeProvider,
-		kubernetesVersion: kubernetesVersion, cni: cni}
+	clusterConfig := ClusterConfig{
+		nodeRoles:            nodeAndRoles,
+		externalNodeProvider: externalNodeProvider,
+		kubernetesVersion:    kubernetesVersion,
+		cni:                  cni,
+		advancedOptions:      advancedOptions,
+	}
 
 	return &clusterConfig
 }
