@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/rancher/pkg/controllers/managementuserlegacy/alert/config"
+
+	"github.com/pkg/errors"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
 	v1 "github.com/rancher/rancher/tests/framework/clients/rancher/v1"
 	"github.com/rancher/rancher/tests/framework/extensions/charts"
@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/serviceaccounts"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads"
 	"github.com/rancher/rancher/tests/framework/pkg/namegenerator"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -184,30 +185,33 @@ func checkPrometheusTargets(client *rancher.Client) (bool, error) {
 // editAlertReceiver is a private helper function
 // that edits alert config structure to be used by the webhook receiver.
 func editAlertReceiver(alertConfigByte []byte, origin string, originURL *url.URL) ([]byte, error) {
-	alertConfig, err := config.Load(string(alertConfigByte))
+	alertConfig := &AlertmanagerConfig{}
+	err := yaml.Unmarshal(alertConfigByte, alertConfig)
+	// alertConfig, err := config.Load(string(alertConfigByte))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal alert config")
 	}
 
-	alertConfig.Global = &config.GlobalConfig{
+	alertConfig.Global = &globalConfig{
 		ResolveTimeout: alertConfig.Global.ResolveTimeout,
 	}
-	alertConfig.Receivers = append(alertConfig.Receivers, &config.Receiver{
+	alertConfig.Receivers = append(alertConfig.Receivers, &receiver{
 		Name: webhookReceiverDeploymentName,
-		WebhookConfigs: []*config.WebhookConfig{
+		WebhookConfigs: []*webhookConfig{
 			{
-				HTTPConfig: &config.HTTPClientConfig{
-					ProxyURL: config.URL{URL: originURL},
-				},
-				NotifierConfig: config.NotifierConfig{
-					VSendResolved: false,
+				HTTPConfig: &httpClientConfig{
+					ProxyURL: originURL.String(),
 				},
 				URL: origin,
 			},
 		},
 	})
 
-	byteAlertConfig := []byte(alertConfig.String())
+	// byteAlertConfig := []byte(alertConfig)
+	byteAlertConfig, err := yaml.Marshal(alertConfig)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal alert config")
+	}
 	dst := make([]byte, base64.StdEncoding.EncodedLen(len(byteAlertConfig)))
 	base64.StdEncoding.Encode(dst, byteAlertConfig)
 
@@ -217,15 +221,17 @@ func editAlertReceiver(alertConfigByte []byte, origin string, originURL *url.URL
 // editAlertRoute is a private helper function
 // that edits alert config structure to be used by the webhook receiver.
 func editAlertRoute(alertConfigByte []byte, origin string, originURL *url.URL) ([]byte, error) {
-	alertConfig, err := config.Load(string(alertConfigByte))
+	alertConfig := &AlertmanagerConfig{}
+	err := yaml.Unmarshal(alertConfigByte, alertConfig)
+	// alertConfig, err := config.Load(string(alertConfigByte))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal alert config")
 	}
 
-	alertConfig.Global = &config.GlobalConfig{
+	alertConfig.Global = &globalConfig{
 		ResolveTimeout: alertConfig.Global.ResolveTimeout,
 	}
-	alertConfig.Route.Routes = append(alertConfig.Route.Routes, &config.Route{
+	alertConfig.Route.Routes = append(alertConfig.Route.Routes, &route{
 		GroupWait:      alertConfig.Route.GroupWait,
 		GroupInterval:  alertConfig.Route.GroupInterval,
 		RepeatInterval: alertConfig.Route.RepeatInterval,
@@ -233,7 +239,11 @@ func editAlertRoute(alertConfigByte []byte, origin string, originURL *url.URL) (
 		Receiver:       webhookReceiverDeploymentName,
 	})
 
-	byteAlertConfig := []byte(alertConfig.String())
+	// byteAlertConfig := []byte(alertConfig.String())
+	byteAlertConfig, err := yaml.Marshal(alertConfig)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal alert config")
+	}
 	dst := make([]byte, base64.StdEncoding.EncodedLen(len(byteAlertConfig)))
 	base64.StdEncoding.Encode(dst, byteAlertConfig)
 
@@ -333,11 +343,15 @@ func createAlertWebhookReceiverDeployment(client *rancher.Client, clusterID, nam
 		return nil, err
 	}
 
+	labels := map[string]string{}
+	labels["workload.user.cattle.io/workloadselector"] = fmt.Sprintf("apps.deployment-%v-%v", namespace, deploymentName)
+
 	// Create webhook receiver config map
 	configmap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configMapName,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Data: map[string]string{
 			"config": kubeConfig,
@@ -348,9 +362,6 @@ func createAlertWebhookReceiverDeployment(client *rancher.Client, clusterID, nam
 	if err != nil {
 		return nil, err
 	}
-
-	labels := map[string]string{}
-	labels["workload.user.cattle.io/workloadselector"] = fmt.Sprintf("apps.deployment-%v-%v", namespace, deploymentName)
 
 	imageSetting, err := client.Management.Setting.ByID(rancherShellSettingID)
 	if err != nil {
@@ -364,9 +375,9 @@ func createAlertWebhookReceiverDeployment(client *rancher.Client, clusterID, nam
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "alert-reciver-deployment",
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy:      corev1.RestartPolicyNever,
 			ServiceAccountName: serviceAccount.Name,
 			Containers: []corev1.Container{
 				{
