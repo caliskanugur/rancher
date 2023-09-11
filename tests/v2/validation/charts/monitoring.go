@@ -8,6 +8,9 @@ import (
 	"time"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/prometheus/alertmanager/config"
+
+	commoncfg "github.com/prometheus/common/config"
 
 	"github.com/pkg/errors"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
@@ -184,25 +187,31 @@ func checkPrometheusTargets(client *rancher.Client) (bool, error) {
 
 // editAlertReceiver is a private helper function
 // that edits alert config structure to be used by the webhook receiver.
-func editAlertReceiver(alertConfigByte []byte, origin string, originURL *url.URL) ([]byte, error) {
-	alertConfig := &AlertmanagerConfig{}
+func editAlertReceiver(alertConfigByte []byte, originURL *url.URL) ([]byte, error) {
+	alertConfig := &config.Config{}
 	err := yaml.Unmarshal(alertConfigByte, alertConfig)
 	// alertConfig, err := config.Load(string(alertConfigByte))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal alert config")
 	}
 
-	alertConfig.Global = &globalConfig{
+	alertConfig.Global = &config.GlobalConfig{
 		ResolveTimeout: alertConfig.Global.ResolveTimeout,
 	}
-	alertConfig.Receivers = append(alertConfig.Receivers, &receiver{
+	alertConfig.Receivers = append(alertConfig.Receivers, config.Receiver{
 		Name: webhookReceiverDeploymentName,
-		WebhookConfigs: []*webhookConfig{
+		WebhookConfigs: []*config.WebhookConfig{
 			{
-				HTTPConfig: &httpClientConfig{
-					ProxyURL: originURL.String(),
+				HTTPConfig: &commoncfg.HTTPClientConfig{
+					ProxyConfig: commoncfg.ProxyConfig{
+						ProxyURL: commoncfg.URL{
+							URL: originURL,
+						},
+					},
 				},
-				URL: origin,
+				URL: &config.SecretURL{
+					URL: originURL,
+				},
 			},
 		},
 	})
@@ -220,18 +229,18 @@ func editAlertReceiver(alertConfigByte []byte, origin string, originURL *url.URL
 
 // editAlertRoute is a private helper function
 // that edits alert config structure to be used by the webhook receiver.
-func editAlertRoute(alertConfigByte []byte, origin string, originURL *url.URL) ([]byte, error) {
-	alertConfig := &AlertmanagerConfig{}
+func editAlertRoute(alertConfigByte []byte, originURL *url.URL) ([]byte, error) {
+	alertConfig := &config.Config{}
 	err := yaml.Unmarshal(alertConfigByte, alertConfig)
 	// alertConfig, err := config.Load(string(alertConfigByte))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal alert config")
 	}
 
-	alertConfig.Global = &globalConfig{
+	alertConfig.Global = &config.GlobalConfig{
 		ResolveTimeout: alertConfig.Global.ResolveTimeout,
 	}
-	alertConfig.Route.Routes = append(alertConfig.Route.Routes, &route{
+	alertConfig.Route.Routes = append(alertConfig.Route.Routes, &config.Route{
 		GroupWait:      alertConfig.Route.GroupWait,
 		GroupInterval:  alertConfig.Route.GroupInterval,
 		RepeatInterval: alertConfig.Route.RepeatInterval,
