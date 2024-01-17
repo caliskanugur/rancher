@@ -785,7 +785,7 @@ func AddRKE2K3SCustomClusterNodes(client *rancher.Client, cluster *v1.SteveAPIOb
 		logrus.Infof(output)
 	}
 
-	err = kwait.Poll(500*time.Millisecond, defaults.TenMinuteTimeout, func() (done bool, err error) {
+	err = kwait.Poll(500*time.Millisecond, defaults.ThirtyMinuteTimeout, func() (done bool, err error) {
 		clusterResp, err := client.Steve.SteveType(clusters.ProvisioningSteveResourceType).ByID(cluster.ID)
 		if err != nil {
 			return false, err
@@ -867,7 +867,7 @@ func AddRKE1CustomClusterNodes(client *rancher.Client, cluster *management.Clust
 		logrus.Infof(output)
 	}
 
-	err = kwait.Poll(500*time.Millisecond, defaults.TenMinuteTimeout, func() (done bool, err error) {
+	err = kwait.Poll(500*time.Millisecond, defaults.ThirtyMinuteTimeout, func() (done bool, err error) {
 		clusterResp, err := client.Management.Cluster.ByID(cluster.ID)
 		if err != nil {
 			return false, err
