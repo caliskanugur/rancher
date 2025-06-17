@@ -1,65 +1,101 @@
 FROM python:3.11
 
-ARG KUBECTL_VERSION=v1.27.10
-ENV WORKSPACE /src/rancher-validation
-WORKDIR $WORKSPACE
-ENV PYTHONPATH /src/rancher-validation
-ARG RKE_VERSION=v1.0.2
-ARG CLI_VERSION=v2.3.2
-ARG RANCHER_HELM_VERSION=v3.9.0
-ARG SONOBUOY_VERSION=0.18.2
-ARG TERRAFORM_VERSION=0.12.10
+# --- Build Arguments ---
+ARG KUBECTL_VERSION="v1.27.10"
+ARG RKE_VERSION="v1.0.2"
+ARG CLI_VERSION="v2.3.2"
+ARG RANCHER_HELM_VERSION="v3.9.0"
+ARG SONOBUOY_VERSION="0.18.2"
+ARG TERRAFORM_VERSION="0.12.10"
 
+# Arguments for VPN configuration
 ARG EXTERNAL_ENCODED_VPN
 ARG VPN_ENCODED_LOGIN
 
+# --- Environment Setup ---
+ENV WORKSPACE /src/rancher-validation
+WORKDIR $WORKSPACE
+ENV PYTHONPATH /src/rancher-validation
 
+# --- Copy Application Files ---
 COPY [".", "$WORKSPACE"]
 
-RUN wget https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl && \
-    mv kubectl /bin/kubectl && \
-    chmod +x /bin/kubectl  && \
-    wget https://github.com/rancher/rke/releases/download/$RKE_VERSION/rke_linux-amd64 && \
-    mv rke_linux-amd64 /bin/rke && \
-    chmod +x /bin/rke && \
-    wget https://github.com/rancher/cli/releases/download/$CLI_VERSION/rancher-linux-amd64-$CLI_VERSION.tar.gz && \
-    tar -x -f rancher-linux-amd64-$CLI_VERSION.tar.gz && \
-    mv rancher-$CLI_VERSION/rancher /bin/rancherctl && \
-    chmod +x /bin/rancherctl && \
-    wget https://get.helm.sh/helm-$RANCHER_HELM_VERSION-linux-amd64.tar.gz && \
-    tar -x -f helm-$RANCHER_HELM_VERSION-linux-amd64.tar.gz && \
-    mv linux-amd64/helm /bin/helm_v3 && \
-    chmod +x /bin/helm_v3 && \
-    wget https://releases.hashicorp.com/terraform/$TERRAFORM_VERSION/terraform_"$TERRAFORM_VERSION"_linux_amd64.zip && \
-    apt-get update && \
-    apt-get install unzip && \
-    unzip terraform_"$TERRAFORM_VERSION"_linux_amd64.zip && \
-    chmod u+x terraform && \
-    mv terraform /usr/local/bin && \
-    wget "https://github.com/vmware-tanzu/sonobuoy/releases/download/v$SONOBUOY_VERSION/sonobuoy_$SONOBUOY_VERSION"_linux_amd64.tar.gz && \
-    tar -xzf "sonobuoy_$SONOBUOY_VERSION"_linux_amd64.tar.gz -C /tmp && \
-    mv /tmp/sonobuoy /usr/local/bin && \
-    chmod +x /usr/local/bin/sonobuoy && \
-    wget https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip && \
-    unzip awscli-exe-linux-x86_64.zip && \
-    ./aws/install && \
-    # curl -sL https://aka.ms/InstallAzureCLIDeb | bash && \
-    cd $WORKSPACE && \
-    pip install --upgrade pip && \
+# --- Install System Dependencies ---
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        curl wget tar gzip unzip ca-certificates openvpn net-tools; \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Install kubectl ---
+RUN set -eux; \
+    wget -q https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl -O /usr/local/bin/kubectl; \
+    chmod +x /usr/local/bin/kubectl
+
+# --- Install RKE ---
+RUN set -eux; \
+    wget -q https://github.com/rancher/rke/releases/download/${RKE_VERSION}/rke_linux-amd64 -O /usr/local/bin/rke; \
+    chmod +x /usr/local/bin/rke
+
+# --- Install Rancher CLI ---
+RUN set -eux; \
+    wget -q https://github.com/rancher/cli/releases/download/${CLI_VERSION}/rancher-linux-amd64-${CLI_VERSION}.tar.gz -O /tmp/rancher-cli.tar.gz; \
+    tar -xzf /tmp/rancher-cli.tar.gz -C /tmp; \
+    mv /tmp/rancher-${CLI_VERSION}/rancher /usr/local/bin/rancherctl; \
+    chmod +x /usr/local/bin/rancherctl; \
+    rm /tmp/rancher-cli.tar.gz
+
+# --- Install Latest Helm ---
+RUN set -eux; \
+    HELM_LATEST_VERSION=$(curl -sSL "https://api.github.com/repos/helm/helm/releases/latest" | grep -oP '"tag_name": "\K[^"]+' | head -1); \
+    echo "Installing latest Helm: ${HELM_LATEST_VERSION}"; \
+    curl -fsSL -o /tmp/helm.tar.gz "https://github.com/helm/helm/releases/download/${HELM_LATEST_VERSION}/helm-${HELM_LATEST_VERSION}-linux-amd64.tar.gz"; \
+    tar -xzf /tmp/helm.tar.gz -C /tmp; \
+    mv /tmp/linux-amd64/helm /usr/local/bin/helm; \
+    chmod +x /usr/local/bin/helm; \
+    rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
+
+# --- Install Terraform ---
+RUN set -eux; \
+    wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_"${TERRAFORM_VERSION}"_linux_amd64.zip -O /tmp/terraform.zip; \
+    unzip /tmp/terraform.zip -d /usr/local/bin; \
+    chmod +x /usr/local/bin/terraform; \
+    rm /tmp/terraform.zip
+
+# --- Install Sonobuoy ---
+RUN set -eux; \
+    wget -q "https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}"_linux_amd64.tar.gz -O /tmp/sonobuoy.tar.gz; \
+    tar -xzf /tmp/sonobuoy.tar.gz -C /usr/local/bin; \
+    chmod +x /usr/local/bin/sonobuoy; \
+    rm /tmp/sonobuoy.tar.gz
+
+# --- Install AWS CLI ---
+RUN set -eux; \
+    curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip; \
+    unzip /tmp/awscliv2.zip -d /tmp; \
+    /tmp/aws/install --install-dir /usr/local/aws-cli --bin-dir /usr/local/bin; \
+    rm -rf /tmp/awscliv2.zip /tmp/aws
+
+# --- Python Dependencies ---
+RUN set -eux; \
+    pip install --upgrade pip; \
     pip install -r requirements_v3api.txt
 
-# necessary to run if statements using [[ ]]
-SHELL ["/bin/bash", "-c"] 
+# --- Configure SHELL ---
+SHELL ["/bin/bash", "-c"]
 
-RUN if [[ -z '$EXTERNAL_ENCODED_VPN' ]] ; then \
-      echo 'no vpn provided' ; \
+# --- OpenVPN Configuration ---
+RUN set -eux; \
+    if [[ -z "${EXTERNAL_ENCODED_VPN}" ]]; then \
+        echo "No VPN configuration provided. Skipping OpenVPN setup."; \
     else \
-      apt-get update && apt-get -y install openvpn net-tools && \
-      echo $EXTERNAL_ENCODED_VPN | base64 -d > external.ovpn && \
-      if [[ -z '$VPN_ENCODED_LOGIN' ]] ; then \
-        echo 'no passcode provided' ; \
-      else \
-        echo 'adding passfile' && echo $VPN_ENCODED_LOGIN | base64 -d > passfile && \
-        sed -i 's/auth-user-pass/auth-user-pass passfile/g' external.ovpn; \
+        echo "VPN configuration detected. Setting up OpenVPN."; \
+        echo "${EXTERNAL_ENCODED_VPN}" | base64 -d > external.ovpn; \
+        if [[ -n "${VPN_ENCODED_LOGIN}" ]]; then \
+            echo "VPN login credentials provided. Adding passfile."; \
+            echo "${VPN_ENCODED_LOGIN}" | base64 -d > passfile; \
+            sed -i 's/auth-user-pass/auth-user-pass passfile/g' external.ovpn; \
+        else \
+            echo "No VPN login credentials provided."; \
         fi; \
-    fi;
+    fi
